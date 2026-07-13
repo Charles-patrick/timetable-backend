@@ -25,9 +25,16 @@ function findConflictInMemory(candidate, placedSoFar) {
 // for a given semester/batch and finds real conflicts. This matters because
 // the generator guarantees no conflicts on creation, but an admin manually
 // editing a timetable entry afterwards could still introduce one.
+// Defaults to the CURRENT (latest) batch only — otherwise every past
+// regeneration would get compared against every other, which always looks
+// like a pile of conflicts even when nothing is actually wrong.
 async function detectSavedConflicts(semesterId, batchId) {
-  const filter = { semester: semesterId };
-  if (batchId) filter.batchId = batchId;
+  const resolvedBatch = batchId || (await resolveLatestBatchForSemester(semesterId));
+  if (!resolvedBatch) {
+    return { lecturerConflicts: [], venueConflicts: [], levelConflicts: [] };
+  }
+
+  const filter = { semester: semesterId, batchId: resolvedBatch };
 
   const entries = await Timetable.find(filter)
     .populate("course", "courseCode courseTitle")
@@ -35,24 +42,20 @@ async function detectSavedConflicts(semesterId, batchId) {
     .populate("venue", "name")
     .populate("timeSlot", "day startTime endTime");
 
-  const lecturerConflicts = groupConflicts(
-    entries,
-    (e) => `${e.timeSlot._id}-${e.lecturer._id}`,
-  );
-  const venueConflicts = groupConflicts(
-    entries,
-    (e) => `${e.timeSlot._id}-${e.venue._id}`,
-  );
-  const levelConflicts = groupConflicts(
-    entries,
-    (e) => `${e.timeSlot._id}-${e.level}`,
-  );
+  const lecturerConflicts = groupConflicts(entries, (e) => `${e.timeSlot._id}-${e.lecturer._id}`);
+  const venueConflicts = groupConflicts(entries, (e) => `${e.timeSlot._id}-${e.venue._id}`);
+  const levelConflicts = groupConflicts(entries, (e) => `${e.timeSlot._id}-${e.level}`);
 
   return {
     lecturerConflicts,
     venueConflicts,
     levelConflicts,
   };
+}
+
+async function resolveLatestBatchForSemester(semesterId) {
+  const latest = await Timetable.findOne({ semester: semesterId }).sort({ createdAt: -1 });
+  return latest ? latest.batchId : null;
 }
 
 // Groups entries by a key; any group with more than one entry is a conflict.

@@ -48,10 +48,17 @@ async function deleteSemester(id) {
   if (!semester) throw new AppError("Semester not found", 404);
 }
 
+// Used by the public timetable view (no login) — students only ever need
+// to know the current semester, never the full admin list.
+async function getActiveSemester() {
+  return Semester.findOne({ active: true }).populate("session", "name status");
+}
+
 module.exports = {
   createSemester,
   listSemesters,
   getSemesterById,
   activateSemester,
   deleteSemester,
+  getActiveSemester,
 };

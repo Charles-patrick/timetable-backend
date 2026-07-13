@@ -1,4 +1,5 @@
 const Timetable = require("./timetable.model");
+const Course = require("../courses/course.model");
 const { wouldConflict } = require("./conflictChecker.service");
 const { AppError } = require("../../middleware/errorHandler");
 
@@ -67,6 +68,57 @@ async function getTimetableEntryById(id) {
   return entry;
 }
 
+// Admin manually places a course into a specific time slot (clicking an
+// empty cell in the grid). Level is always taken from the course itself —
+// never trusted from the client — so level-conflict checks stay accurate.
+// If this is the first entry ever created for the semester, a fresh batch
+// is started; otherwise it joins whatever the current batch already is.
+async function createTimetableEntry({
+  course,
+  lecturer,
+  venue,
+  timeSlot,
+  semester,
+}) {
+  if (!course || !venue || !timeSlot || !semester) {
+    throw new AppError(
+      "Course, venue, time slot and semester are required",
+      400,
+    );
+  }
+
+  const courseDoc = await Course.findById(course);
+  if (!courseDoc) throw new AppError("Course not found", 404);
+
+  const finalLecturer = lecturer || courseDoc.lecturer;
+  const batchId = (await resolveLatestBatch(semester)) || `batch_${Date.now()}`;
+
+  const conflict = await wouldConflict({
+    semester,
+    batchId,
+    timeSlot,
+    lecturer: finalLecturer,
+    venue,
+    level: courseDoc.level,
+  });
+
+  if (conflict) {
+    throw new AppError(`This slot already has a ${conflict} conflict`, 409);
+  }
+
+  const entry = await Timetable.create({
+    course,
+    lecturer: finalLecturer,
+    venue,
+    timeSlot,
+    semester,
+    level: courseDoc.level,
+    batchId,
+  });
+
+  return getTimetableEntryById(entry._id);
+}
+
 // Admin manually reassigns lecturer/venue/timeSlot on one entry.
 // Re-checks conflicts against every other entry in the same batch first.
 async function updateTimetableEntry(id, { lecturer, venue, timeSlot }) {
@@ -110,6 +162,7 @@ async function deleteTimetableEntry(id) {
 module.exports = {
   listTimetable,
   getTimetableEntryById,
+  createTimetableEntry,
   updateTimetableEntry,
   deleteTimetableEntry,
   resolveLatestBatch,

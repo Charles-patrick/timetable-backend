@@ -54,6 +54,7 @@ router.get(
   controller.exportAdminExcel,
 );
 router.get("/", verifyToken, requireRole("admin"), controller.list);
+router.post("/", verifyToken, requireRole("admin"), controller.createEntry);
 router.get("/:id", verifyToken, requireRole("admin"), controller.getOne);
 router.put("/:id", verifyToken, requireRole("admin"), controller.update);
 router.delete("/:id", verifyToken, requireRole("admin"), controller.remove);

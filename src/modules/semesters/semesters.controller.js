@@ -33,13 +33,11 @@ async function getOne(req, res, next) {
 async function activate(req, res, next) {
   try {
     const semester = await semestersService.activateSemester(req.params.id);
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Semester activated",
-        data: { semester },
-      });
+    res.status(200).json({
+      success: true,
+      message: "Semester activated",
+      data: { semester },
+    });
   } catch (err) {
     next(err);
   }
@@ -56,4 +54,13 @@ async function remove(req, res, next) {
   }
 }
 
-module.exports = { create, list, getOne, activate, remove };
+async function getActive(req, res, next) {
+  try {
+    const semester = await semestersService.getActiveSemester();
+    res.status(200).json({ success: true, message: "OK", data: { semester } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { create, list, getOne, activate, remove, getActive };

@@ -39,6 +39,28 @@ async function list(req, res, next) {
   }
 }
 
+async function createEntry(req, res, next) {
+  try {
+    const { course, lecturer, venue, timeSlot, semester } = req.body;
+    const entry = await timetableService.createTimetableEntry({
+      course,
+      lecturer,
+      venue,
+      timeSlot,
+      semester,
+    });
+    res
+      .status(201)
+      .json({
+        success: true,
+        message: "Course added to timetable",
+        data: { entry },
+      });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getOne(req, res, next) {
   try {
     const entry = await timetableService.getTimetableEntryById(req.params.id);
@@ -142,6 +164,7 @@ async function myTimetable(req, res, next) {
 module.exports = {
   generate,
   list,
+  createEntry,
   getOne,
   update,
   remove,
