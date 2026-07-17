@@ -11,6 +11,7 @@ const semesterRoutes = require("./modules/semesters/semesters.routes");
 const courseRoutes = require("./modules/courses/courses.routes");
 const timetableRoutes = require("./modules/timetable/timetable.routes");
 const adminRoutes = require("./modules/admin/admin.routes");
+const departmentRoutes = require("./modules/departments/departments.routes");
 const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
@@ -41,6 +42,7 @@ app.use("/api/v1/semesters", semesterRoutes);
 app.use("/api/v1/courses", courseRoutes);
 app.use("/api/v1/timetable", timetableRoutes);
 app.use("/api/v1/admin", adminRoutes); 
+app.use("/api/v1/departments", departmentRoutes);
 
 // Catch-all for undefined routes
 app.use((req, res) => {

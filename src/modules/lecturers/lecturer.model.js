@@ -34,11 +34,6 @@ const lecturerSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    department: {
-      type: String,
-      required: [true, "Department is required"],
-      trim: true,
-    },
     // Enhancement: periods this lecturer is NOT available.
     // The timetable generator skips these when assigning slots.
     unavailability: {

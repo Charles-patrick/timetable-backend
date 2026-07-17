@@ -19,6 +19,7 @@ async function listTimetable({
   search,
   batchId,
   lecturer,
+  department,
 }) {
   if (!semester) {
     throw new AppError("Semester is required", 400);
@@ -32,13 +33,25 @@ async function listTimetable({
   if (lecturer) filter.lecturer = lecturer;
 
   let query = Timetable.find(filter)
-    .populate("course", "courseCode courseTitle courseUnit department")
+    .populate({
+      path: "course",
+      select: "courseCode courseTitle courseUnit departments lecturers",
+      populate: { path: "lecturers", select: "name email" },
+    })
     .populate("lecturer", "name email")
     .populate("venue", "name type")
     .populate("timeSlot", "day startTime endTime")
     .populate("semester", "name session");
 
   let entries = await query;
+
+  // A course can belong to several departments, so this checks membership
+  // in that list rather than an exact match.
+  if (department) {
+    entries = entries.filter((e) =>
+      e.course.departments.some((d) => d.toString() === department),
+    );
+  }
 
   if (day) {
     entries = entries.filter((e) => e.timeSlot.day === day);
@@ -60,11 +73,48 @@ async function listTimetable({
 
 async function getTimetableEntryById(id) {
   const entry = await Timetable.findById(id)
-    .populate("course", "courseCode courseTitle department")
+    .populate({
+      path: "course",
+      select: "courseCode courseTitle departments lecturers",
+      populate: { path: "lecturers", select: "name email" },
+    })
     .populate("lecturer", "name email")
     .populate("venue", "name type")
     .populate("timeSlot", "day startTime endTime");
   if (!entry) throw new AppError("Timetable entry not found", 404);
+  return entry;
+}
+
+// Admin manually reassigns lecturer/venue/timeSlot on one entry.
+// Re-checks conflicts against every other entry in the same batch first.
+async function updateTimetableEntry(id, { lecturer, venue, timeSlot }) {
+  const entry = await Timetable.findById(id).populate("course", "departments");
+  if (!entry) throw new AppError("Timetable entry not found", 404);
+
+  const newLecturer = lecturer || entry.lecturer;
+  const newVenue = venue || entry.venue;
+  const newTimeSlot = timeSlot || entry.timeSlot;
+
+  const conflict = await wouldConflict({
+    semester: entry.semester,
+    batchId: entry.batchId,
+    timeSlot: newTimeSlot,
+    lecturer: newLecturer,
+    venue: newVenue,
+    level: entry.level,
+    departments: entry.course.departments,
+    excludeId: entry._id,
+  });
+
+  if (conflict) {
+    throw new AppError(`This change creates a ${conflict} conflict with another entry`, 409);
+  }
+
+  entry.lecturer = newLecturer;
+  entry.venue = newVenue;
+  entry.timeSlot = newTimeSlot;
+  await entry.save();
+
   return entry;
 }
 
@@ -90,17 +140,18 @@ async function createTimetableEntry({
   const courseDoc = await Course.findById(course);
   if (!courseDoc) throw new AppError("Course not found", 404);
 
-  const finalLecturer = lecturer || courseDoc.lecturer;
+  const finalLecturer = lecturer || courseDoc.lecturers[0];
   const batchId = (await resolveLatestBatch(semester)) || `batch_${Date.now()}`;
 
-  const conflict = await wouldConflict({
-    semester,
-    batchId,
-    timeSlot,
-    lecturer: finalLecturer,
-    venue,
-    level: courseDoc.level,
-  });
+const conflict = await wouldConflict({
+  semester,
+  batchId,
+  timeSlot,
+  lecturer: finalLecturer,
+  venue,
+  level: courseDoc.level,
+  departments: courseDoc.departments,
+});
 
   if (conflict) {
     throw new AppError(`This slot already has a ${conflict} conflict`, 409);
@@ -117,41 +168,6 @@ async function createTimetableEntry({
   });
 
   return getTimetableEntryById(entry._id);
-}
-
-// Admin manually reassigns lecturer/venue/timeSlot on one entry.
-// Re-checks conflicts against every other entry in the same batch first.
-async function updateTimetableEntry(id, { lecturer, venue, timeSlot }) {
-  const entry = await Timetable.findById(id);
-  if (!entry) throw new AppError("Timetable entry not found", 404);
-
-  const newLecturer = lecturer || entry.lecturer;
-  const newVenue = venue || entry.venue;
-  const newTimeSlot = timeSlot || entry.timeSlot;
-
-  const conflict = await wouldConflict({
-    semester: entry.semester,
-    batchId: entry.batchId,
-    timeSlot: newTimeSlot,
-    lecturer: newLecturer,
-    venue: newVenue,
-    level: entry.level,
-    excludeId: entry._id,
-  });
-
-  if (conflict) {
-    throw new AppError(
-      `This change creates a ${conflict} conflict with another entry`,
-      409,
-    );
-  }
-
-  entry.lecturer = newLecturer;
-  entry.venue = newVenue;
-  entry.timeSlot = newTimeSlot;
-  await entry.save();
-
-  return entry;
 }
 
 async function deleteTimetableEntry(id) {

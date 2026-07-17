@@ -25,13 +25,14 @@ async function generate(req, res, next) {
 
 async function list(req, res, next) {
   try {
-    const { semester, level, day, search, batchId } = req.query;
+    const { semester, level, day, search, batchId, department } = req.query;
     const entries = await timetableService.listTimetable({
       semester,
       level,
       day,
       search,
       batchId,
+      department,
     });
     res.status(200).json({ success: true, message: "OK", data: { entries } });
   } catch (err) {
@@ -120,12 +121,13 @@ async function conflicts(req, res, next) {
 // Public + lecturer view: same listing logic, just exposed without admin gating
 async function publicList(req, res, next) {
   try {
-    const { semester, level, day, search } = req.query;
+    const { semester, level, day, search, department } = req.query;
     const entries = await timetableService.listTimetable({
       semester,
       level,
       day,
       search,
+      department,
     });
     res.status(200).json({ success: true, message: "OK", data: { entries } });
   } catch (err) {
@@ -191,7 +193,7 @@ function streamPdf(res, entries, title, subtitle) {
 
 async function exportPublicPdf(req, res, next) {
   try {
-    const { semester, level, day, search } = req.query;
+    const { semester, level, day, search, department } = req.query;
     if (!semester) {
       return res
         .status(400)
@@ -202,6 +204,7 @@ async function exportPublicPdf(req, res, next) {
       level,
       day,
       search,
+      department,
     });
     const title = level ? `Timetable — ${level} Level` : "Timetable";
     streamPdf(res, entries, title, "");
@@ -238,7 +241,7 @@ async function exportMyPdf(req, res, next) {
 
 async function exportAdminPdf(req, res, next) {
   try {
-    const { semester, level, day, search, batchId } = req.query;
+    const { semester, level, day, search, batchId, department } = req.query;
     if (!semester) {
       return res
         .status(400)
@@ -250,6 +253,7 @@ async function exportAdminPdf(req, res, next) {
       day,
       search,
       batchId,
+      department,
     });
     const title = level ? `Timetable — ${level} Level` : "Full Timetable";
     streamPdf(res, entries, title, "");
@@ -274,7 +278,7 @@ async function streamExcel(res, entries, title) {
 
 async function exportPublicExcel(req, res, next) {
   try {
-    const { semester, level, day, search } = req.query;
+    const { semester, level, day, search, department } = req.query;
     if (!semester) {
       return res
         .status(400)
@@ -285,6 +289,7 @@ async function exportPublicExcel(req, res, next) {
       level,
       day,
       search,
+      department,
     });
     const title = level ? `Timetable - ${level} Level` : "Timetable";
     await streamExcel(res, entries, title);
@@ -321,7 +326,7 @@ async function exportMyExcel(req, res, next) {
 
 async function exportAdminExcel(req, res, next) {
   try {
-    const { semester, level, day, search, batchId } = req.query;
+    const { semester, level, day, search, batchId, department } = req.query;
     if (!semester) {
       return res
         .status(400)
@@ -333,6 +338,7 @@ async function exportAdminExcel(req, res, next) {
       day,
       search,
       batchId,
+      department,
     });
     const title = level ? `Timetable - ${level} Level` : "Full Timetable";
     await streamExcel(res, entries, title);

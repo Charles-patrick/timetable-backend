@@ -1,5 +1,5 @@
 const express = require("express");
-const controller = require("./timeslots.controller");
+const controller = require("./departments.controller");
 const {
   verifyToken,
   requireRole,
@@ -7,9 +7,8 @@ const {
 
 const router = express.Router();
 
-// Public — no login. Needed so the public/lecturer timetable grids can
-// render every row (including empty slots), not just occupied ones.
-router.get("/public", controller.list);
+// Public — no login. Powers the department picker on the public timetable page.
+router.get("/public", controller.publicList);
 
 router.use(verifyToken, requireRole("admin"));
 

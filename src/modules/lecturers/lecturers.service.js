@@ -7,12 +7,9 @@ const { AppError } = require("../../middleware/errorHandler");
 // Creating a lecturer also creates their login account (role: 'lecturer'),
 // since the project spec's Lecturer Management includes a Password field.
 // Done inside a transaction so we never end up with one doc but not the other.
-async function createLecturer({ name, email, department, password }) {
-  if (!name || !email || !department || !password) {
-    throw new AppError(
-      "Name, email, department and password are required",
-      400,
-    );
+async function createLecturer({ name, email, password }) {
+  if (!name || !email || !password) {
+    throw new AppError("Name, email and password are required", 400);
   }
 
   const normalizedEmail = email.toLowerCase();
@@ -41,7 +38,7 @@ async function createLecturer({ name, email, department, password }) {
       );
 
       const [createdLecturer] = await Lecturer.create(
-        [{ name, email: normalizedEmail, department, user: user._id }],
+        [{ name, email: normalizedEmail, user: user._id }],
         { session },
       );
 
@@ -56,16 +53,13 @@ async function createLecturer({ name, email, department, password }) {
   }
 }
 
-async function listLecturers({ search, department } = {}) {
+async function listLecturers({ search } = {}) {
   const filter = {};
-
-  if (department) filter.department = department;
 
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: "i" } },
       { email: { $regex: search, $options: "i" } },
-      { department: { $regex: search, $options: "i" } },
     ];
   }
 
@@ -78,10 +72,7 @@ async function getLecturerById(id) {
   return lecturer;
 }
 
-async function updateLecturer(
-  id,
-  { name, email, department, password, unavailability },
-) {
+async function updateLecturer(id, { name, email, password, unavailability }) {
   const lecturer = await Lecturer.findById(id);
   if (!lecturer) throw new AppError("Lecturer not found", 404);
 
@@ -103,7 +94,6 @@ async function updateLecturer(
     lecturer.name = name;
     user.name = name;
   }
-  if (department) lecturer.department = department;
   if (unavailability) lecturer.unavailability = unavailability;
 
   if (password) {

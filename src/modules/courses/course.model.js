@@ -29,15 +29,24 @@ const courseSchema = new mongoose.Schema(
       ref: "Semester",
       required: [true, "Semester is required"],
     },
-    department: {
-      type: String,
-      required: [true, "Department is required"],
-      trim: true,
+    // A course can be offered to more than one department (e.g. a shared
+    // core course), so this is a list rather than a single value.
+    departments: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Department" }],
+      validate: {
+        validator: (arr) => Array.isArray(arr) && arr.length > 0,
+        message: "At least one department is required",
+      },
     },
-    lecturer: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Lecturer",
-      required: [true, "Lecturer is required"],
+    // Likewise, more than one lecturer may be able to teach a course —
+    // the specific lecturer for a given timetable slot is chosen when it's
+    // scheduled (manually or by the generator), not fixed here.
+    lecturers: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Lecturer" }],
+      validate: {
+        validator: (arr) => Array.isArray(arr) && arr.length > 0,
+        message: "At least one lecturer is required",
+      },
     },
     // Enhancement: lab courses can only be assigned laboratory venues
     isLab: {
